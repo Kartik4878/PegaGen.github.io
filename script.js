@@ -67,14 +67,28 @@ const createCase = async (casetype)=>{
 //***** My cases page */
 
 
+
 const displayMyCases = async()=>{
         const {cases, errors} = await getData(createCaseUrl);
         if(errors){
             handleErrors(errors);
             return;
         }
+        // const input = returnInput(1,"prompt","Enter prompt here..", "prompt","text","");
+        // const promptBox = returnDiv("casePromptBox","",input);
+        const myCasesContainer = returnDiv("casePromptBox","",null);
+        // const applyAIFilter =async ()=>{
+        //     const finalPrompt = promptBuilder(4,[input.value,JSON.stringify(cases)]);
+        //     const {data} =await gemeniRequestHandler(finalPrompt);
+        //     console.log(data);
+        //     myCasesContainer.querySelector("#myCases") ? myCasesContainer.removeChild(myCasesContainer.querySelector("#myCases")) : null;
+        //     // const myCases = returnDiv("myCases","",returnTable(data, getCaseInformation, "ID"));
+        //     myCasesContainer.appendChild(myCases);
+        // }
+        // promptBox.appendChild(returnButton(1,"Filter",applyAIFilter))
         const myCases = returnDiv("myCases","",returnTable(cases, getCaseInformation, "ID"));
-        reloadPageContent(myCases); 
+        myCasesContainer.appendChild(myCases);
+        reloadPageContent(myCasesContainer); 
 }
 
 //******my Assignments page */
@@ -108,15 +122,54 @@ const getCaseInformation =async (id)=>{
         const bubbleContainer = returnDiv("bubbleContainer","px-6 pt-4 pb-2",bubble);
         const innerCard2 = returnDiv("innerCaseCard2","font-bold text-xl mb-2",null);
         const innerCard = returnDiv("innerCaseCard","px-6 py-4",innerCard2);
-        const card = returnDiv("caseCard","max-w-sm rounded overflow-hidden shadow-lg",innerCard);
+        const card = returnDiv("caseCard","rounded overflow-hidden shadow-lg",innerCard);
         innerCard2.textContent = ID;
         innerCard2.appendChild(bubbleContainer);
         bubbleContainer.appendChild(bubble2);
         if(assignments){
             card.appendChild(returnButton(1,"Perform assignment",()=>setUpPerformAssignment(assignments[0].ID)));
         }
+        card.appendChild(returnButton(1,"Analyze",()=>handleAIAnalyzer(content)));
+        const contentContainer = returnDiv("contentContainer","",returnTable(convertObjectToArray(content)));
+        card.appendChild(contentContainer);
         reloadPageContent(card);
 }
+
+const handleAIAnalyzer =async (caseInfo)=>{
+     const finalPrompt = promptBuilder(2,[JSON.stringify(caseInfo)]);
+     const {data} = await gemeniRequestHandler(finalPrompt);
+     const card = document.getElementById("caseCard");
+     if(data){
+        card.querySelector("#contentContainer") ? card.removeChild(card.querySelector("#contentContainer")) : null;
+        card.querySelector("#AIContentContainer") ? card.removeChild(card.querySelector("#AIContentContainer")) : null;
+        const AIContent = returnHeader(1, data, "bg-blue-100 p-2 m-1 p-4 rounded-md");
+        AIContent.setAttribute("id","AIContent");
+        const AIContentContainer = returnDiv("AIContentContainer","rounded overflow-hidden shadow-lg",AIContent);
+        const askMore = returnButton(1,"Ask more",()=>handleAskAI(caseInfo));
+        AIContentContainer.appendChild(askMore);
+        card.appendChild(AIContentContainer);
+     }else{
+        alert("Something went wrong.");
+     }
+}
+const handleAskAI =(caseInfo)=>{
+    const input = returnInput(1,"prompt","Enter prompt here..", "prompt","text","");
+    input.addEventListener("keypress", (e)=>{if(e.key === "Enter")handleSubmit()})
+    const handleSubmit =async()=>{
+        const finalPrompt = promptBuilder(3,[input.value,JSON.stringify(caseInfo)]);
+        const {data} = await gemeniRequestHandler(finalPrompt);
+        if(data){
+            document.getElementById("AIContent").textContent = data;
+        }
+    }
+    const AIContentContainer = document.getElementById("AIContentContainer");
+    if(AIContentContainer.querySelector("#promptForm")) return;
+    const form = returnDiv("promptForm","bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4",input);
+    form.appendChild(returnButton(3,"Submit",handleSubmit));
+    AIContentContainer.appendChild(form);
+}
+
+
 
 
 //**** Data page Page */
@@ -288,9 +341,7 @@ const displayMyApplications = async()=>{
             handleErrors(errors);
             return;
         }
-        const myApplications = document.createElement("section");
-        myApplications.setAttribute("id","myCases");
-        myApplications.appendChild(returnTable(applications, getApplicationInfo, "ID"));
+        const myApplications = returnDiv("myApplications","",returnTable(applications, getApplicationInfo, "ID"));
         reloadPageContent(myApplications);
     } 
 
@@ -417,37 +468,28 @@ const submitAssignment =async (assignID, actionID,formData)=>{
 const getPromptsPage = ()=>{
     setupFunctionalities(true, null);
     const input = returnInput(1,"prompt","Enter prompt here..", "prompt","text","");
+    input.addEventListener("keypress", (e)=>{if(e.key === "Enter")handlePromptsNavRun(input.value)})
     const form = returnDiv("promptForm","bg-white shadow-md rounded px-8 pt-6 pb-8 mb-4",input);
-    form.appendChild(returnButton(3,"Submit",()=>handlePromptsRun(input.value)));
+    form.appendChild(returnButton(3,"Submit",()=>handlePromptsNavRun(input.value)));
     const promptContainer = returnDiv("promptContainer","bg-gray-200",form);
     reloadPageContent(promptContainer);
 }
 
-const geminiURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=AIzaSyDiPEx_vXZiqhB33wIw5z-w25MrHAAE-rE";
-const geminiText = "I have the following prompt in double quotes:\r\n\"I want to get information about CCNEC-32 case\"\r\nI don\'t need any explanations for the logic; I just want the final answer object to be returned as the response. I don\'t want you to work as a function to return the final answer object.\r\nBased on the prompt, I want to first determine whether I need to get a list of data objects or a single data object.\r\nI have written the logic as an if-else condition, and you need to solve it to return the final answer object as the response.\r\nIf the prompt is about a list of data objects:\r\n{\r\n  \"type\": \"list\",\r\n  \"dataFor\": \"\",\r\n  \"category\": \"\"\r\n}\r\nIf the prompt is about a list of cases:\r\n•\tSet the category of the final response object to \"case\".\r\n•\tAnalyse the type of case and store the answer in the dataFor key of the final response object.\r\n•\tThe type of case should be a single word and can be one of the following: Commsec, TradeFinance, EDA.\r\nIf the prompt is about a list of applications:\r\n•\tSet the category of the final response object to \"application\".\r\nIf the prompt is about a list of assignments:\r\n•\tSet the category of the final response object to \"assignment\".\r\nIf the prompt is about nodes or a list of nodes:\r\n•\tSet the category of the final response object to \"nodes\".\r\nOtherwise:\r\n{\r\n  \"type\": \"object\",\r\n  \"dataFor\": \"\",\r\n  \"category\": \"\"\r\n}\r\nIf the prompt is about getting information about a case:\r\n•\tAnalyse the prompt and set the case ID present in the prompt to the dataFor key of the final response object.\r\n•\tThe case ID will be in this format: \"ABCDE-3213\".\r\nIf the prompt is about getting information about an application:\r\n•\tAnalyse the prompt and set the application name present in the prompt to the dataFor key of the final response object.\r\n•\tThe application name can be one of the following: Commsec, TradeFinance, EDA.\r\n•\tSet the category of the final response object to \"application\".\r\n \r\n"
-const gemeniData = {
-    contents: [
-        {
-            parts: [
-                {
-                    "text": geminiText
-                }
-            ]
-        }
-    ]
-}
-const handlePromptsRun =async (prompt) =>{
-    console.log(prompt);
-    const {data} =await postData(geminiURL, gemeniData);
-    console.log(data);
-    // data = {
-    //     type : "object",
-    //     dataFor : "WORK-CHANNEL-TRIAGE ET-185021",
-    //     category : "case"
-    // }
+
+
+const handlePromptsNavRun =async (prompt) =>{
+    const finalPrompt = promptBuilder(1, [prompt]);
+    if(!finalPrompt) return;
+    const data = await gemeniRequestHandler(finalPrompt);
     if(data.type === "object"){
     if(data.category === "case"){
-        getCaseInformation(data.dataFor);
+        if(data.dataFor.includes("ET-")){
+            const caseKey = "WORK-CHANNEL-TRIAGE "+data.dataFor;
+            getCaseInformation(caseKey);
+        }else{
+            const caseKey = "SA-CLIENTSERVICES-WORK "+data.dataFor;
+            getCaseInformation(caseKey);
+        }
     }else if(data.category === "application"){
         getCaseInformation(data.dataFor);
     }
@@ -458,8 +500,57 @@ const handlePromptsRun =async (prompt) =>{
         displayMyApplications();
     }else if(data.category === "nodes"){
         displayAllNodes();
+    }else if(data.category === "assignments"){
+        displayMyAssignments();
     }
 }
+}
+
+
+const promptBuilder = (promptID, ...param)=>{
+    if(promptID ===1){
+        return `I have the following prompt in double quotes: \"${param[0]}\" I don't need any explanations for the logic; I just want the final answer object to be returned as the response. I don't want you to work as a function to return the final answer object. Based on the prompt, I want to first determine whether I need to get a list of data objects or a single data object. I have written the logic as an if-else condition, and you need to solve it to return the final answer object as the response. If the prompt is about a list of data objects: { \"type\": \"list\", \"dataFor\": \"\", \"category\": \"\" } If the prompt is about a list of cases: Set the category of the final response object to \"case\". Analyse the type of case and store the answer in the dataFor key of the final response object. The type of case should be a single word and can be one of the following: Commsec, TradeFinance, EDA. If the prompt is about a list of applications: Set the category of the final response object to \"application\". If the prompt is about a list of assignments: Set the category of the final response object to \"assignments\". If the prompt is about nodes or a list of nodes: Set the category of the final response object to \"nodes\". Otherwise: { \"type\": \"object\", \"dataFor\": \"\", \"category\": \"\" } If the prompt is about getting information about a case: Analyse the prompt and set the case ID present in the prompt to the dataFor key of the final response object. The case ID will be in this format: \"ABCDE-3213\". If the prompt is about getting information about an application: Analyse the prompt and set the application name present in the prompt to the dataFor key of the final response object. The application name can be one of the following: Commsec, TradeFinance, EDA. Set the category of the final response object to \"application\".`
+    }else if(promptID ===2) {
+        return `I dont want any explanations for the logic i just want the final answer object defined to be returned as response.I dont want to you to work as a function to return the final answer object defined to be returned as response.give the final respose in the following format  - {data : \"\"}I have the case information received as an Object from an API as given below, summerize it in a meaningful way in less that 500 words, analyse the API response and set the summerized text in the \"data\" key of final response, this is the API response object to analyse - ${param[0]}` 
+    }else if(promptID ===3){
+        return `I dont want any explanations for the logic i just want the final answer object defined to be returned as response. I dont want to you to work as a function to return the final answer object defined to be returned as response. Answer the below question in double quotes based on the Object from the API reponse and store the answer in the \"data\" key of final response."${param[1]}?". Give the final respose in the following format  - {data : \"\"} .The case object to be analyzed contains information about a case in key value pairs, decode the key value pairs to form a JSON object, then analyse all the keys of the JSON obect to get the best suited answer for the question.  Only give the information asked for. Don't give any extra information.Analyse and try to relate the keys present in response object with the question and give an answer based on that. the case object that needs to be analyzed is - ${param[0]}`
+    }else if(promptID ===4){
+        return `I don't want any explanations for the logic; I just want the final answer object defined to be returned as the response. I don't want you to work as a function to return the final answer object defined to be returned as the response. Apply the filter condition on the array based on the condition present in double quotes: "${param[0]}".Give the final respose in the following format  - {data : \"\"} . I have a list of cases as an array; each individual object in the array is a case. I want to apply the filter condition on the array objects based on the question asked. Use the keys of each object in the array to apply the filter condition. The response should also be an array with the same data model, and it should be stored in the "data" key of the final response. The list of array on which I need to apply filter is ${param[1]}`
+    }
+
+}
+
+const gemeniRequestHandler =async(prompt)=>{
+    const gemeniData = {
+        contents: [
+            {
+                parts: [
+                    {
+                        text: prompt
+                    }
+                    
+                ]
+            }
+        ]
+    }
+const geminiURL = "https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=";
+const key ="AIzaSyDiPEx_vXZiqhB33wIw5z-w25MrHAAE-rE"; 
+    try {
+        setLoading(true);
+        const data = await fetch(geminiURL + key,{ContentType : "application/json", method : "POST", body:JSON.stringify(gemeniData)});
+        setLoading(false);
+        const jsonData = await data.json();
+        jsonData.status = data.status;
+        handleDiagnostics(geminiURL, gemeniData, jsonData);
+        const promptResult = jsonData.candidates[0].content.parts[0].text;
+        if(promptResult){
+            return JSON.parse(promptResult.replace(/```json|```/g, ''));
+        }
+        } catch (error) {
+        handleAPIErrors(error);
+        setLoading(false);
+        return error;    
+        }
 }
 
 // handle errors 
@@ -711,7 +802,9 @@ const setLoading = (param)=>{
     const loader =  returnDiv("loader","border border-gray-300 shadow rounded-md p-4 max-w-sm w-full mx-auto",returnDiv("inputBox1","animate-pulse flex space-x-4",returnDiv("inputBox2","rounded-full bg-gray-400 h-12 w-12",returnDiv("inputBox3","flex-1 space-y-4 py-1",returnDiv("inputBox4","h-4 bg-gray-400 rounded w-3/4",returnDiv("inputBox5","space-y-2",returnDiv("inputBox6","h-4 bg-gray-400 rounded",returnDiv("innerBox7","h-4 bg-gray-400 rounded w-5/6",null))))))));
     document.getElementById("content").appendChild(loader);}
     else{
+    if(document.getElementById("loader")){
     document.getElementById("content").removeChild(document.getElementById("loader"));  
+    }
     }
 }
 
