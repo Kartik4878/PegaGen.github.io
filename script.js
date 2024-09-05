@@ -1,4 +1,4 @@
-// Configs
+// Configss
 
 // const baseUrl = "https://szk2j6ti.pegace.net/prweb/api/v1/";
 const baseUrl = "https://cbaess-bimowf-dt1.privatelink.pegaservice.net/prweb/api/v1/"
